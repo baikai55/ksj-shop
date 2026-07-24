@@ -23,6 +23,42 @@ const api = {
 
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
+function goodsImageUrl(item) {
+  const u = (item && (item.main_img_url || item.img_url || item.main_img || item.img)) || "";
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u)) return u;
+  if (String(u).startsWith("//")) return "https:" + u;
+  return "https://cdn.ksjhaoka.com/" + String(u).replace(/^\//, "");
+}
+
+function imgTag(src, alt, className) {
+  const safeSrc = escapeHtml(src || "");
+  const safeAlt = escapeHtml(alt || "商品");
+  const cls = className ? (' class="' + className + '"') : "";
+  return '<img' + cls + ' src="' + safeSrc + '" alt="' + safeAlt + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fallback="1" onerror="window.__ksjImgErr&&window.__ksjImgErr(this)">';
+}
+
+window.__ksjImgErr = function (img) {
+  try {
+    const src = img.getAttribute("src") || "";
+    const step = Number(img.dataset.errStep || "0");
+    if (step === 0 && src.includes("cdn.ksjhaoka.com")) {
+      img.dataset.errStep = "1";
+      img.src = src.replace("cdn.ksjhaoka.com", "ym.ksjhaoka.com");
+      return;
+    }
+    if (step === 1 && /https?:\/\/[^/]+\//.test(src)) {
+      img.dataset.errStep = "2";
+      img.src = src.replace(/https?:\/\/[^/]+\//, "https://ksjhaoka.com/");
+      return;
+    }
+    img.style.opacity = ".35";
+    img.alt = "图片加载失败";
+  } catch (_) {
+    img.style.opacity = ".35";
+  }
+};
+
 function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -55,7 +91,7 @@ function renderGoodsCard(item) {
   const tags = (item.tabs || []).slice(0, 4).map((t) => `<span class="tag">${escapeHtml(t.name || t)}</span>`).join("");
   return `
     <article class="card">
-      <img src="${escapeHtml(item.main_img_url || "")}" alt="${escapeHtml(item.name || "商品")}" loading="lazy" onerror="this.style.opacity=.3">
+      ${imgTag(goodsImageUrl(item), item.name || "商品")}
       <div class="card-body">
         <div class="card-title">${escapeHtml(item.name || "未命名商品")}</div>
         <div class="meta">
@@ -129,6 +165,14 @@ function fillSelect(select, items, placeholder) {
     items.map((it) => `<option value="${it.id}">${escapeHtml(it.name)}</option>`).join("");
 }
 
+async function fetchGoodsDetail(id) {
+  try {
+    return await api.get("/api/goods/" + encodeURIComponent(id));
+  } catch (err) {
+    return api.get("/api/goods?id=" + encodeURIComponent(id));
+  }
+}
+
 async function initProductPage() {
   const health = await loadHealth();
   const params = new URLSearchParams(location.search);
@@ -159,14 +203,21 @@ async function initProductPage() {
   let selectedPhone = "";
 
   try {
-    const res = await api.get(`/api/goods/${encodeURIComponent(id)}`);
+    const res = await fetchGoodsDetail(id);
     goods = res.data;
   } catch (err) {
     showAlert(alertEl, "error", err.message || "商品加载失败");
     return;
   }
 
-  coverEl.src = goods.main_img_url || goods.img_url || "";
+  const cover = goodsImageUrl(goods);
+    if (coverEl) {
+      coverEl.loading = "lazy";
+      coverEl.decoding = "async";
+      coverEl.referrerPolicy = "no-referrer";
+      coverEl.onerror = function () { window.__ksjImgErr && window.__ksjImgErr(coverEl); };
+      coverEl.src = cover;
+    }
   titleEl.textContent = goods.name || "商品详情";
   metaEl.innerHTML = [
     goods.age_limit && `年龄：${escapeHtml(goods.age_limit)}`,

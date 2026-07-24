@@ -1,10 +1,23 @@
 {
   "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/api/goods/:id",
+      "destination": "/api/goods-id?id=:id"
+    },
+    {
+      "source": "/api/order/query",
+      "destination": "/api/order-query"
+    }
+  ],
   "headers": [
     {
       "source": "/api/:path*",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
       ]
     }
   ]
