@@ -8,10 +8,11 @@ const api = {
     return data;
   },
   async post(url, body) {
+    const hasBody = !(body === undefined || body === null);
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body || {}),
+      headers: hasBody ? { "Content-Type": "application/json" } : { Accept: "application/json" },
+      body: hasBody ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.ok === false) {
@@ -334,9 +335,19 @@ async function initListPage() {
   await load(true);
 }
 
+function isRegionEnabled(it) {
+  // 文档地区树可能带 disable=true，禁用项不可选
+  return !(it && (it.disable === true || it.disable === 1 || it.disable === "1"));
+}
+
+function enabledChildren(it) {
+  return (it?.children || []).filter(isRegionEnabled);
+}
+
 function fillSelect(select, items, placeholder) {
+  const list = (items || []).filter(isRegionEnabled);
   select.innerHTML = `<option value="">${placeholder}</option>` +
-    items.map((it) => `<option value="${it.id}">${escapeHtml(it.name)}</option>`).join("");
+    list.map((it) => `<option value="${it.id}">${escapeHtml(it.name)}</option>`).join("");
 }
 
 async function fetchGoodsDetail(id) {
@@ -405,10 +416,10 @@ async function initProductPage() {
   if (Number(goods.is_card_no) === 1) idCardField.hidden = false;
   if (Number(goods.is_phone) === 1) phonePickWrap.hidden = false;
 
-  // 地区
+  // 地区（文档：POST /region?goods_id=xxx，Query 传参）
   try {
-    const reg = await api.post("/api/region", { goods_id: goods.id });
-    regionTree = Array.isArray(reg.data) ? reg.data : [];
+    const reg = await api.post(`/api/region?goods_id=${encodeURIComponent(goods.id)}`);
+    regionTree = (Array.isArray(reg.data) ? reg.data : []).filter(isRegionEnabled);
   } catch (err) {
     showAlert(alertEl, "error", `地区加载失败：${err.message}`);
   }
@@ -422,13 +433,13 @@ async function initProductPage() {
 
   provinceEl.addEventListener("change", () => {
     const p = regionTree.find((x) => String(x.id) === provinceEl.value);
-    fillSelect(cityEl, p?.children || [], "选择市");
+    fillSelect(cityEl, enabledChildren(p), "选择市");
     fillSelect(districtEl, [], "选择区");
   });
   cityEl.addEventListener("change", () => {
     const p = regionTree.find((x) => String(x.id) === provinceEl.value);
-    const c = (p?.children || []).find((x) => String(x.id) === cityEl.value);
-    fillSelect(districtEl, c?.children || [], "选择区");
+    const c = enabledChildren(p).find((x) => String(x.id) === cityEl.value);
+    fillSelect(districtEl, enabledChildren(c), "选择区");
   });
 
   async function loadPhones() {
