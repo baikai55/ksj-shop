@@ -1,0 +1,20 @@
+﻿{
+  "name": "ksj-shop",
+  "version": "1.1.0",
+  "private": true,
+  "description": "卡世界号卡分销宣传站：商品列表 / 详情 / 自动下单（支持 Vercel / Cloudflare Pages）",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "deploy:vercel": "npx vercel --prod",
+    "deploy:cf": "npx wrangler pages deploy public --project-name=ksj-shop"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}

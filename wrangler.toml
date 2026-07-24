@@ -1,0 +1,10 @@
+﻿name = "ksj-shop"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "public"
+
+[vars]
+SITE_NAME = "号卡优选"
+KSJ_BASE_URL = "https://ym.ksjhaoka.com/api/index"
+KSJ_CDN_BASE = "https://cdn.ksjhaoka.com/"
+ALLOW_DEMO_STORE = "false"

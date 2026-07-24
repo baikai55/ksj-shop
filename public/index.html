@@ -1,0 +1,45 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>号卡优选 | 在售套餐</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body data-page="list">
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-badge">卡</div>
+        <div data-site-name>号卡优选</div>
+      </div>
+      <nav class="nav">
+        <a href="/">商品列表</a>
+        <a href="/order.html">订单查询</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>精选流量卡 / 宽带套餐</h1>
+      <p>商品实时同步卡世界在售列表，在线下单后自动提交官方接口处理。</p>
+    </section>
+
+    <div id="page-alert" class="alert" hidden></div>
+
+    <div class="toolbar">
+      <input id="keyword" type="search" placeholder="搜索套餐名称，如：电信、广电、29元" />
+      <button id="btn-search" class="btn btn-primary" type="button">搜索</button>
+    </div>
+
+    <div id="goods-list"></div>
+    <div id="pager" class="toolbar" style="justify-content:center"></div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">本站为代理宣传下单页，订单由卡世界平台履约。请填写真实信息以便审核发货。</div>
+  </footer>
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+﻿{
+  "version": 2,
+  "rewrites": [
+    { "source": "/product.html", "destination": "/product.html" },
+    { "source": "/order.html", "destination": "/order.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}
