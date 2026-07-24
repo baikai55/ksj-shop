@@ -31,7 +31,43 @@
     <div class="toolbar">
       <input id="keyword" type="search" placeholder="搜索套餐名称，如：电信、广电、29元" />
       <button id="btn-search" class="btn btn-primary" type="button">搜索</button>
+      <button id="btn-reset" class="btn btn-ghost" type="button">重置</button>
     </div>
+
+    <section class="filters" id="filters" aria-label="商品筛选">
+      <div class="filter-row">
+        <div class="filter-label">运营商</div>
+        <div class="filter-chips" data-filter="carrier">
+          <button type="button" class="chip active" data-value="">全部</button>
+          <button type="button" class="chip" data-value="电信">电信</button>
+          <button type="button" class="chip" data-value="移动">移动</button>
+          <button type="button" class="chip" data-value="联通">联通</button>
+          <button type="button" class="chip" data-value="广电">广电</button>
+          <button type="button" class="chip" data-value="宽带">宽带</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <div class="filter-label">月租</div>
+        <div class="filter-chips" data-filter="price">
+          <button type="button" class="chip active" data-value="">全部</button>
+          <button type="button" class="chip" data-value="0-19">19元及以下</button>
+          <button type="button" class="chip" data-value="20-29">20-29元</button>
+          <button type="button" class="chip" data-value="30-39">30-39元</button>
+          <button type="button" class="chip" data-value="40-999">40元及以上</button>
+        </div>
+      </div>
+      <div class="filter-row">
+        <div class="filter-label">激活</div>
+        <div class="filter-chips" data-filter="activate">
+          <button type="button" class="chip active" data-value="">全部</button>
+          <button type="button" class="chip" data-value="自主激活">自主激活</button>
+          <button type="button" class="chip" data-value="快递激活">快递激活</button>
+          <button type="button" class="chip" data-value="上门激活">上门激活</button>
+          <button type="button" class="chip" data-value="上门安装">上门安装</button>
+        </div>
+      </div>
+      <div class="filter-meta" id="filter-meta"></div>
+    </section>
 
     <div id="goods-list"></div>
     <div id="pager" class="toolbar" style="justify-content:center"></div>

@@ -108,13 +108,85 @@ function renderGoodsCard(item) {
   `;
 }
 
+
+function detectCarrier(item) {
+  const text = [item?.name, ...(item?.tabs || []).map((t) => t.name || t)].join(" ");
+  if (/宽带|Mbps|mbps/.test(text)) return "宽带";
+  if (/电信/.test(text)) return "电信";
+  if (/移动/.test(text)) return "移动";
+  if (/联通/.test(text)) return "联通";
+  if (/广电/.test(text)) return "广电";
+  return "其他";
+}
+
+function extractMonthlyPrice(item) {
+  const blobs = [];
+  if (item?.name) blobs.push(item.name);
+  (item?.tabs || []).forEach((t) => blobs.push(String(t.name || t || "")));
+  const text = blobs.join(" | ");
+  // prefer explicit 月租：xx元
+  let m = text.match(/月租[：: ]*\s*(\d+(?:\.\d+)?)\s*元?/);
+  if (m) return Number(m[1]);
+  // name like 29元205G
+  m = text.match(/(\d+(?:\.\d+)?)\s*元/);
+  if (m) return Number(m[1]);
+  return null;
+}
+
+function matchesPriceRange(price, range) {
+  if (!range) return true;
+  if (price == null || Number.isNaN(price)) return false;
+  const [minS, maxS] = String(range).split("-");
+  const min = Number(minS);
+  const max = Number(maxS);
+  return price >= min && price <= max;
+}
+
+function matchesActivate(item, activate) {
+  if (!activate) return true;
+  const a = String(item?.activate_type || "");
+  if (!a) return false;
+  if (activate === "快递激活") return /快递/.test(a);
+  if (activate === "上门激活") return /上门激活/.test(a);
+  if (activate === "上门安装") return /上门安装/.test(a);
+  if (activate === "自主激活") return /自主/.test(a);
+  return a.includes(activate);
+}
+
+function filterGoodsList(list, { keyword, carrier, price, activate }) {
+  const kw = (keyword || "").trim().toLowerCase();
+  return (list || []).filter((item) => {
+    const name = String(item?.name || "");
+    const hay = [
+      name,
+      item?.activate_type || "",
+      item?.delivery || "",
+      ...(item?.tabs || []).map((t) => t.name || t),
+    ].join(" ").toLowerCase();
+    if (kw && !hay.includes(kw)) return false;
+    if (carrier) {
+      const c = detectCarrier(item);
+      if (carrier === "宽带") {
+        if (c !== "宽带" && !/宽带/.test(name)) return false;
+      } else if (c !== carrier && !name.includes(carrier)) {
+        return false;
+      }
+    }
+    if (!matchesPriceRange(extractMonthlyPrice(item), price)) return false;
+    if (!matchesActivate(item, activate)) return false;
+    return true;
+  });
+}
+
 async function initListPage() {
   const health = await loadHealth();
   const listEl = qs("#goods-list");
   const alertEl = qs("#page-alert");
   const keywordEl = qs("#keyword");
   const searchBtn = qs("#btn-search");
+  const resetBtn = qs("#btn-reset");
   const pagerEl = qs("#pager");
+  const metaEl = qs("#filter-meta");
 
   if (health && !health.storeConfigured) {
     showAlert(alertEl, "error", "服务端未配置 KSJ_STORE_ID。请在 .env 填写店铺 ID（后台左下角复制，格式如 s137OBaD1）。URL 中的 token 不是店铺 ID。");
@@ -122,42 +194,144 @@ async function initListPage() {
     showAlert(alertEl, "warn", "当前为演示店铺数据（ALLOW_DEMO_STORE=true）。正式对外请配置你自己的 KSJ_STORE_ID。");
   }
 
-  let current = 1;
-  const size = 12;
+  const state = {
+    current: 1,
+    size: 12,
+    carrier: "",
+    price: "",
+    activate: "",
+    all: [],
+    loadedKeyword: null,
+    loadingAll: false,
+  };
 
-  async function load(page = 1) {
-    current = page;
+  function selectedFilters() {
+    return {
+      keyword: keywordEl?.value?.trim() || "",
+      carrier: state.carrier,
+      price: state.price,
+      activate: state.activate,
+    };
+  }
+
+  function setChipGroup(name, value) {
+    const group = qs(`.filter-chips[data-filter="${name}"]`);
+    if (!group) return;
+    qsa(".chip", group).forEach((btn) => {
+      btn.classList.toggle("active", (btn.dataset.value || "") === value);
+    });
+  }
+
+  async function fetchAllGoods(keyword) {
+    // pull enough pages for client-side multi filter
+    const size = 50;
+    let page = 1;
+    let pages = 1;
+    const all = [];
+    do {
+      const res = await api.get(`/api/goods?current=${page}&size=${size}&keyword=${encodeURIComponent(keyword || "")}`);
+      const list = res.data?.list || [];
+      all.push(...list);
+      pages = Number(res.data?.pagination?.pages || 1);
+      page += 1;
+    } while (page <= pages && page <= 20);
+    // de-dupe by id
+    const map = new Map();
+    all.forEach((it) => {
+      if (it && it.id != null) map.set(String(it.id), it);
+    });
+    return [...map.values()];
+  }
+
+  function renderPage() {
+    const filters = selectedFilters();
+    const filtered = filterGoodsList(state.all, filters);
+    const pages = Math.max(1, Math.ceil(filtered.length / state.size) || 1);
+    if (state.current > pages) state.current = pages;
+    const start = (state.current - 1) * state.size;
+    const pageList = filtered.slice(start, start + state.size);
+
+    if (metaEl) {
+      const bits = [];
+      if (filters.carrier) bits.push(filters.carrier);
+      if (filters.price) bits.push(`月租${filters.price.replace("-", "~")}元`);
+      if (filters.activate) bits.push(filters.activate);
+      if (filters.keyword) bits.push(`关键词“${filters.keyword}”`);
+      metaEl.textContent = bits.length
+        ? `筛选：${bits.join(" · ")}，共 ${filtered.length} 件`
+        : `共 ${filtered.length} 件商品`;
+    }
+
+    if (!filtered.length) {
+      listEl.innerHTML = `<div class="empty">没有符合条件的商品，试试调整筛选或关键词</div>`;
+    } else {
+      listEl.innerHTML = `<div class="grid">${pageList.map(renderGoodsCard).join("")}</div>`;
+    }
+
+    pagerEl.innerHTML = `
+      <button class="btn" ${state.current <= 1 ? "disabled" : ""} data-page="${state.current - 1}">上一页</button>
+      <span class="meta" style="align-self:center">第 ${state.current} / ${pages} 页 · 共 ${filtered.length} 件</span>
+      <button class="btn" ${state.current >= pages ? "disabled" : ""} data-page="${state.current + 1}">下一页</button>
+    `;
+    qsa("[data-page]", pagerEl).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.current = Number(btn.dataset.page) || 1;
+        renderPage();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+  }
+
+  async function load(resetPage = true) {
+    if (resetPage) state.current = 1;
     listEl.innerHTML = `<div class="loading">商品加载中…</div>`;
     try {
       const keyword = keywordEl?.value?.trim() || "";
-      const res = await api.get(`/api/goods?current=${current}&size=${size}&keyword=${encodeURIComponent(keyword)}`);
-      const list = res.data?.list || [];
-      const pagination = res.data?.pagination || {};
-      if (!list.length) {
-        listEl.innerHTML = `<div class="empty">暂无在售商品${keyword ? "（试试换个关键词）" : ""}</div>`;
-      } else {
-        listEl.innerHTML = `<div class="grid">${list.map(renderGoodsCard).join("")}</div>`;
+      // only re-fetch when keyword changes; chips filter client-side
+      if (state.loadedKeyword !== keyword || !state.all.length) {
+        state.loadingAll = true;
+        state.all = await fetchAllGoods(keyword);
+        state.loadedKeyword = keyword;
+        state.loadingAll = false;
       }
-      const pages = pagination.pages || 1;
-      pagerEl.innerHTML = `
-        <button class="btn" ${current <= 1 ? "disabled" : ""} data-page="${current - 1}">上一页</button>
-        <span class="meta" style="align-self:center">第 ${current} / ${pages} 页 · 共 ${pagination.total ?? list.length} 件</span>
-        <button class="btn" ${current >= pages ? "disabled" : ""} data-page="${current + 1}">下一页</button>
-      `;
-      qsa("[data-page]", pagerEl).forEach((btn) => {
-        btn.addEventListener("click", () => load(Number(btn.dataset.page)));
-      });
+      renderPage();
     } catch (err) {
+      state.loadingAll = false;
       listEl.innerHTML = "";
       showAlert(alertEl, "error", err.message || "加载失败");
     }
   }
 
-  searchBtn?.addEventListener("click", () => load(1));
-  keywordEl?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") load(1);
+  qsa(".filter-chips").forEach((group) => {
+    group.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chip");
+      if (!btn || !group.contains(btn)) return;
+      const name = group.dataset.filter;
+      const value = btn.dataset.value || "";
+      if (name === "carrier") state.carrier = value;
+      if (name === "price") state.price = value;
+      if (name === "activate") state.activate = value;
+      setChipGroup(name, value);
+      state.current = 1;
+      renderPage();
+    });
   });
-  await load(1);
+
+  searchBtn?.addEventListener("click", () => load(true));
+  resetBtn?.addEventListener("click", () => {
+    if (keywordEl) keywordEl.value = "";
+    state.carrier = "";
+    state.price = "";
+    state.activate = "";
+    setChipGroup("carrier", "");
+    setChipGroup("price", "");
+    setChipGroup("activate", "");
+    load(true);
+  });
+  keywordEl?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") load(true);
+  });
+  await load(true);
 }
 
 function fillSelect(select, items, placeholder) {
