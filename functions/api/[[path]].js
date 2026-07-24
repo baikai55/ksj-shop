@@ -1,4 +1,4 @@
-﻿import { handleApi } from "../core-esm.js";
+import { handleApi } from "../core-esm.js";
 
 async function readBody(request) {
   if (request.method === "GET" || request.method === "HEAD") return null;

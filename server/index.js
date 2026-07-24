@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 本地开发服务器（Node 18+/22）
  */
 const path = require("path");

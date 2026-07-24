@@ -1,4 +1,4 @@
-﻿const { handleApi } = require("../lib/core");
+const { handleApi } = require("../lib/core");
 
 function getPathname(req) {
   // /api/goods, /api/order/query, etc.

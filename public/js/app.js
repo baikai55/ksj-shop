@@ -1,4 +1,4 @@
-﻿const api = {
+const api = {
   async get(url) {
     const res = await fetch(url);
     const data = await res.json().catch(() => ({}));
